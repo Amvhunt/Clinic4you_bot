@@ -3,7 +3,6 @@
 ## Предварительные требования
 
 - Node.js >= 18
-- Docker и docker-compose
 - Git
 - Telegram Bot Token (от @BotFather)
 - Altegio partner token, user token, location ID и webhook secret
@@ -22,30 +21,15 @@ cp .env.example .env
 nano .env
 ```
 
-### 2. Запуск в Docker
+### 2. Установка зависимостей и миграции
 
 ```bash
-# Start all services
-docker-compose -f docker/docker-compose.yml up -d
-
-# Check status
-docker-compose -f docker/docker-compose.yml ps
-
-# View logs
-docker-compose -f docker/docker-compose.yml logs -f core-bot
+npm install
+npm run db:generate --workspace=database
+npm run db:migrate --workspace=database
 ```
 
-### 3. Миграция БД
-
-```bash
-# Run migrations
-docker-compose -f docker/docker-compose.yml exec core-bot npm run db:migrate --workspace=database
-
-# (Optional) Seed test data
-docker-compose -f docker/docker-compose.yml exec core-bot npm run db:seed --workspace=database
-```
-
-### 4. Настройка Altegio Webhook
+### 3. Настройка Altegio Webhook
 
 В Altegio панели администратора:
 1. Перейти в **Интеграции** → **Webhooks**
@@ -65,10 +49,10 @@ curl http://localhost:3000/health
 # Send /start to your bot
 
 # View Redis queue status (optional)
-docker-compose -f docker/docker-compose.yml exec redis redis-cli monitor
+redis-cli monitor
 ```
 
-## Локальная разработка без Docker
+## Локальная разработка
 
 ### 1. Установка зависимостей
 
@@ -100,9 +84,6 @@ brew install redis
 
 # Start Redis
 redis-server
-
-# Or use Docker для Redis только
-docker run -d -p 6379:6379 redis:7-alpine
 ```
 
 ### 4. Запуск приложения
