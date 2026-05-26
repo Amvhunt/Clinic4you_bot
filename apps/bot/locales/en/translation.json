@@ -1,0 +1,19 @@
+{
+  "greeting": "Welcome to clinic bot! 👋",
+  "help": "Help",
+  "help_text": "/start - Start\n/help - Show this help\n/appointment - Book an appointment\n/reminder - Manage reminders",
+  "appointment": {
+    "title": "Appointment",
+    "confirm": "Appointment confirmed",
+    "cancelled": "Appointment cancelled",
+    "updated": "Appointment updated",
+    "reminder_24h": "Reminder: your appointment in 24 hours",
+    "reminder_2h": "Reminder: your appointment in 2 hours",
+    "service": "Service",
+    "date_time": "Date/Time",
+    "specialist": "Specialist"
+  },
+  "error": {
+    "occurred": "An error occurred. Please try again later."
+  }
+}

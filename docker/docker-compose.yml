@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: clinic-bot-postgres
+    environment:
+      POSTGRES_USER: clinic_user
+      POSTGRES_PASSWORD: clinic_password
+      POSTGRES_DB: clinic_bot
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U clinic_user']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: clinic-bot-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Core Bot
+  core-bot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: clinic-bot-core
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://clinic_user:clinic_password@postgres:5432/clinic_bot
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      ALTEGIO_API_KEY: ${ALTEGIO_API_KEY}
+      ALTEGIO_WEBHOOK_SECRET: ${ALTEGIO_WEBHOOK_SECRET}
+      ADMIN_CHAT_ID: ${ADMIN_CHAT_ID}
+      LOG_LEVEL: debug
+    ports:
+      - '3000:3000'
+    volumes:
+      - ../apps/bot/src:/app/apps/bot/src
+      - ../modules:/app/modules
+      - ../shared:/app/shared
+      - ../database:/app/database
+      - clinic_logs:/app/logs
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Notification Worker
+  notification-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: clinic-bot-notifications
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://clinic_user:clinic_password@postgres:5432/clinic_bot
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      LOG_LEVEL: debug
+      SERVICE_NAME: notification-worker
+    volumes:
+      - ../modules/notifications/src:/app/modules/notifications/src
+      - ../shared:/app/shared
+      - ../database:/app/database
+      - clinic_logs:/app/logs
+    command: npm run dev --workspace=@bot/notifications
+
+volumes:
+  postgres_data:
+  redis_data:
+  clinic_logs:

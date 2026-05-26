@@ -1,0 +1,147 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User/Customer model
+model User {
+  id                String      @id @default(cuid())
+  telegramId        String      @unique
+  firstName         String?
+  lastName          String?
+  phoneNumber       String?
+  email             String?
+  altegioUserId     String?     @unique
+  locale            String      @default("ru")
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  deletedAt         DateTime?
+
+  // Relations
+  appointments      Appointment[]
+  notifications     Notification[]
+  preferences       UserPreferences?
+  loyaltyPoints     LoyaltyPoints?
+
+  @@index([telegramId])
+  @@index([altegioUserId])
+}
+
+// User preferences
+model UserPreferences {
+  id                String      @id @default(cuid())
+  userId            String      @unique
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  notificationsEnabled    Boolean     @default(true)
+  reminderBefore24h       Boolean     @default(true)
+  reminderBefore2h        Boolean     @default(true)
+  marketingEmails         Boolean     @default(false)
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([userId])
+}
+
+// Appointments/Bookings
+model Appointment {
+  id                String      @id @default(cuid())
+  telegramUserId    String
+  user              User        @relation(fields: [telegramUserId], references: [telegramId])
+  
+  altegioBookingId  String      @unique
+  serviceName       String      // e.g., "Капельница B-комплекс"
+  specialist        String?     // Doctor/Specialist name
+  
+  startTime         DateTime
+  endTime           DateTime
+  status            String      @default("confirmed") // confirmed, cancelled, completed, no-show
+  
+  reminder24Sent    Boolean     @default(false)
+  reminder2Sent     Boolean     @default(false)
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  // Relations
+  notifications     Notification[]
+
+  @@index([telegramUserId])
+  @@index([altegioBookingId])
+  @@index([startTime])
+}
+
+// Notifications log
+model Notification {
+  id                String      @id @default(cuid())
+  telegramUserId    String?
+  user              User?       @relation(fields: [telegramUserId], references: [telegramId])
+  
+  appointmentId     String?
+  appointment       Appointment? @relation(fields: [appointmentId], references: [id])
+  
+  type              String      // confirmation, reminder_24h, reminder_2h, admin_new, admin_cancel
+  content           String      // Message text
+  locale            String      @default("ru")
+  
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failureReason     String?
+  retryCount        Int         @default(0)
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([telegramUserId])
+  @@index([appointmentId])
+  @@index([type])
+  @@index([sentAt])
+}
+
+// Loyalty points
+model LoyaltyPoints {
+  id                String      @id @default(cuid())
+  userId            String      @unique
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  balance           Int         @default(0)
+  totalEarned       Int         @default(0)
+  totalSpent        Int         @default(0)
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([userId])
+}
+
+// Queue jobs state (for tracking BullMQ jobs)
+model QueueJob {
+  id                String      @id @default(cuid())
+  queueName         String      // notification, reminder, email, etc
+  jobId             String
+  status            String      // pending, processing, completed, failed
+  
+  data              Json
+  result            Json?
+  error             String?
+  
+  attemptsMade      Int         @default(0)
+  maxAttempts       Int         @default(3)
+  
+  createdAt         DateTime    @default(now())
+  completedAt       DateTime?
+  failedAt          DateTime?
+
+  @@unique([queueName, jobId])
+  @@index([queueName])
+  @@index([status])
+}

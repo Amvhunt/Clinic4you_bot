@@ -1,0 +1,31 @@
+{
+  "name": "clinic-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Telegram bot for clinic with notifications, AI support and mini app",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "clean": "turbo clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "^1.10.16",
+    "prettier": "^3.1.0",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.2"
+  },
+  "workspaces": [
+    "apps/*",
+    "modules/*",
+    "shared/*",
+    "database"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
