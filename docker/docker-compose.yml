@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -45,15 +43,16 @@ services:
       redis:
         condition: service_healthy
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       DATABASE_URL: postgresql://clinic_user:clinic_password@postgres:5432/clinic_bot
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
       ALTEGIO_PARTNER_TOKEN: ${ALTEGIO_PARTNER_TOKEN}
       ALTEGIO_USER_TOKEN: ${ALTEGIO_USER_TOKEN}
-      ALTEGIO_LOCATION_ID: ${ALTEGIO_LOCATION_ID}
+      ALTEGIO_LOCATION_ID: ${ALTEGIO_LOCATION_ID:-test-location}
       ALTEGIO_WEBHOOK_SECRET: ${ALTEGIO_WEBHOOK_SECRET}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
@@ -68,6 +67,7 @@ services:
       - ../shared:/app/shared
       - ../database:/app/database
       - clinic_logs:/app/logs
+    command: ["npm", "run", "dev", "--workspace=core-bot"]
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
       interval: 30s
@@ -91,6 +91,7 @@ services:
       DATABASE_URL: postgresql://clinic_user:clinic_password@postgres:5432/clinic_bot
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}

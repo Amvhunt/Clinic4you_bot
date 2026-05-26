@@ -309,8 +309,10 @@ export class BotManager {
         if (!config.telegram.webhookUrl) {
           throw new Error('TELEGRAM_WEBHOOK_URL is required in production');
         }
-        await this.bot.telegram.setWebhook(`${config.telegram.webhookUrl}/telegram/webhook`);
+        const webhookEndpoint = `${config.telegram.webhookUrl}/telegram/webhook`;
+        await this.bot.telegram.setWebhook(webhookEndpoint);
         logger.info('Bot running in webhook mode');
+        await this.notifyAdminWebhookUrl(webhookEndpoint);
       } else {
         // Polling mode for development
         logger.info('Bot running in polling mode');
@@ -319,6 +321,20 @@ export class BotManager {
     } catch (error) {
       logger.error('Failed to start bot:', error);
       process.exit(1);
+    }
+  }
+
+  private async notifyAdminWebhookUrl(webhookUrl: string) {
+    if (!config.telegram.adminChatId) return;
+
+    try {
+      await this.bot.telegram.sendMessage(
+        config.telegram.adminChatId,
+        `Webhook установлен и работает: ${webhookUrl}`
+      );
+      logger.info('Admin notified about webhook registration');
+    } catch (error) {
+      logger.error('Failed to notify admin about webhook registration:', error);
     }
   }
 
