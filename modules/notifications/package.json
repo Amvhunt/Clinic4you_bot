@@ -17,7 +17,9 @@
     "@prisma/client": "^5.7.0",
     "i18next": "^23.7.6",
     "winston": "^3.11.0",
-    "axios": "^1.6.2"
+    "axios": "^1.6.2",
+    "@bot/logger": "*",
+    "@bot/database": "*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

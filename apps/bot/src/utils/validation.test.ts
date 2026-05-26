@@ -82,17 +82,18 @@ describe('Notification Validation', () => {
       expect(() => validateWebhookPayload(invalid)).toThrow(ValidationError);
     });
 
-    it('should reject missing required fields', () => {
+    it('should allow partial webhook payload for Altegio record hydration', () => {
       const invalid = { ...validPayload, data: { booking_id: 'booking_123' } };
+      const result = validateWebhookPayload(invalid);
 
-      expect(() => validateWebhookPayload(invalid)).toThrow(ValidationError);
+      expect(result.data.booking_id).toBe('booking_123');
     });
 
-    it('should strip unknown fields', () => {
+    it('should keep unknown fields for Altegio webhook parser compatibility', () => {
       const withUnknown = { ...validPayload, unknownField: 'value' };
       const result = validateWebhookPayload(withUnknown);
 
-      expect((result as any).unknownField).toBeUndefined();
+      expect((result as any).unknownField).toBe('value');
     });
   });
 });

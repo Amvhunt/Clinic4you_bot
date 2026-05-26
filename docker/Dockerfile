@@ -10,11 +10,12 @@ COPY package*.json ./
 COPY apps/bot/package.json ./apps/bot/
 COPY modules/notifications/package.json ./modules/notifications/
 COPY modules/altegio/package.json ./modules/altegio/
+COPY modules/validation/package.json ./modules/validation/
 COPY database/package.json ./database/
 COPY shared/package.json ./shared/
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY . .

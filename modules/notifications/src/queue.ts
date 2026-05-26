@@ -1,5 +1,4 @@
-import { Queue, Worker, QueueScheduler, ConnectionOptions } from 'bullmq';
-import redis from 'redis';
+import { Queue, ConnectionOptions } from 'bullmq';
 import logger from '@bot/logger';
 
 const redisConnection: ConnectionOptions = {
@@ -11,14 +10,6 @@ const redisConnection: ConnectionOptions = {
 export const notificationQueue = new Queue('notifications', { connection: redisConnection });
 export const reminderQueue = new Queue('reminders', { connection: redisConnection });
 export const emailQueue = new Queue('emails', { connection: redisConnection });
-
-// Schedulers for delayed jobs
-export const notificationScheduler = new QueueScheduler('notifications', {
-  connection: redisConnection,
-});
-export const reminderScheduler = new QueueScheduler('reminders', {
-  connection: redisConnection,
-});
 
 // Queue event handlers
 notificationQueue.on('error', (error) => {
@@ -32,7 +23,15 @@ reminderQueue.on('error', (error) => {
 // Job data interfaces
 export interface NotificationJobData {
   telegramUserId: string;
-  type: 'confirmation' | 'reminder_24h' | 'reminder_2h' | 'admin_new' | 'admin_cancel';
+  type:
+    | 'confirmation'
+    | 'reminder_24h'
+    | 'reminder_2h'
+    | 'client_update'
+    | 'client_cancel'
+    | 'admin_new'
+    | 'admin_update'
+    | 'admin_cancel';
   appointmentId?: string;
   content: string;
   locale?: string;
@@ -85,6 +84,7 @@ export async function enqueueReminder(data: ReminderJobData) {
         delay: 2000,
       },
       removeOnComplete: true,
+      removeOnFail: false,
     });
 
     logger.info(`Reminder job queued: ${job.id}`, {
@@ -104,8 +104,6 @@ export async function closeQueues() {
     await notificationQueue.close();
     await reminderQueue.close();
     await emailQueue.close();
-    await notificationScheduler.close();
-    await reminderScheduler.close();
     logger.info('All queues closed');
   } catch (error) {
     logger.error('Error closing queues:', error);

@@ -14,7 +14,9 @@ export const config = {
     url: process.env.REDIS_URL || 'redis://localhost:6379',
   },
   altegio: {
-    apiKey: process.env.ALTEGIO_API_KEY || '',
+    partnerToken: process.env.ALTEGIO_PARTNER_TOKEN || process.env.ALTEGIO_API_KEY || '',
+    userToken: process.env.ALTEGIO_USER_TOKEN || '',
+    locationId: process.env.ALTEGIO_LOCATION_ID || '',
     webhookSecret: process.env.ALTEGIO_WEBHOOK_SECRET || '',
   },
   openrouter: {
@@ -32,4 +34,10 @@ export const config = {
 
 if (!config.telegram.token) {
   throw new Error('TELEGRAM_BOT_TOKEN is not set in environment variables');
+}
+
+if (!config.altegio.partnerToken || !config.altegio.userToken || !config.altegio.locationId) {
+  throw new Error(
+    'ALTEGIO_PARTNER_TOKEN, ALTEGIO_USER_TOKEN and ALTEGIO_LOCATION_ID must be set in environment variables'
+  );
 }

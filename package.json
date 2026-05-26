@@ -21,6 +21,7 @@
   "workspaces": [
     "apps/*",
     "modules/*",
+    "shared",
     "shared/*",
     "database"
   ],

@@ -6,7 +6,7 @@
 - Docker и docker-compose
 - Git
 - Telegram Bot Token (от @BotFather)
-- Altegio API ключ и webhook secret
+- Altegio partner token, user token, location ID и webhook secret
 
 ## Быстрый старт (5 минут)
 
@@ -51,7 +51,7 @@ docker-compose -f docker/docker-compose.yml exec core-bot npm run db:seed --work
 1. Перейти в **Интеграции** → **Webhooks**
 2. Добавить новый webhook:
    - URL: `https://your-domain.com/webhook/altegio`
-   - Events: booking_created, booking_updated, booking_cancelled
+   - Events/entity: включить record/appointment events
    - Secret: (значение из ALTEGIO_WEBHOOK_SECRET)
 3. Test connection
 

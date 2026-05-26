@@ -1,6 +1,5 @@
 import Joi from 'joi';
 
-// Webhook validation schemas
 export const bookingWebhookDataSchema = Joi.object({
   booking_id: Joi.alternatives().try(Joi.string(), Joi.number()).optional(),
   client_id: Joi.alternatives().try(Joi.string(), Joi.number()).optional(),
@@ -28,7 +27,6 @@ export const webhookPayloadSchema = Joi.object({
   data: bookingWebhookDataSchema.optional(),
 }).or('event', 'action', 'operation', 'type').unknown(true);
 
-// Notification validation schema
 export const notificationJobSchema = Joi.object({
   telegramUserId: Joi.string().required(),
   type: Joi.string()
@@ -49,7 +47,6 @@ export const notificationJobSchema = Joi.object({
   metadata: Joi.object().optional(),
 });
 
-// Validate webhook payload
 export function validateWebhookPayload(payload: unknown) {
   const { error, value } = webhookPayloadSchema.validate(payload, {
     abortEarly: false,
@@ -64,7 +61,6 @@ export function validateWebhookPayload(payload: unknown) {
   return value;
 }
 
-// Validate notification job
 export function validateNotificationJob(data: unknown) {
   const { error, value } = notificationJobSchema.validate(data, {
     abortEarly: false,
@@ -79,7 +75,6 @@ export function validateNotificationJob(data: unknown) {
   return value;
 }
 
-// Custom validation error
 export class ValidationError extends Error {
   constructor(message: string) {
     super(message);

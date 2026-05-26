@@ -2,11 +2,15 @@ import logger from '@bot/logger';
 import prisma from '@bot/database';
 import { WebhookVerifier, WebhookParser, AltegioClient, BookingWebhookData } from '@bot/altegio';
 import { enqueueNotification, enqueueReminder } from '@bot/notifications';
-import { validateWebhookPayload, ValidationError } from '@bot/validation';
+import { validateWebhookPayload } from '@bot/validation';
 import { Request, Response } from 'express';
 import { config } from '../config';
 
-const altegioClient = new AltegioClient(config.altegio.apiKey);
+const altegioClient = new AltegioClient({
+  partnerToken: config.altegio.partnerToken,
+  userToken: config.altegio.userToken,
+  locationId: config.altegio.locationId,
+});
 const webhookVerifier = new WebhookVerifier(config.altegio.webhookSecret);
 
 /**
@@ -16,14 +20,14 @@ export async function handleAltegioWebhook(req: Request, res: Response) {
   try {
     // Verify webhook signature
     const signature = req.headers['x-signature'] as string;
-    if (!signature) {
+    if (config.altegio.webhookSecret && !signature) {
       logger.warn('Missing X-Signature header');
       return res.status(401).json({ ok: false, error: 'Missing signature' });
     }
 
-    const payload = JSON.stringify(req.body);
+    const payload = (req as any).rawBody || JSON.stringify(req.body);
 
-    if (!webhookVerifier.verifySignature(payload, signature)) {
+    if (signature && !webhookVerifier.verifySignature(payload, signature)) {
       logger.warn('Invalid webhook signature');
       return res.status(401).json({ ok: false, error: 'Invalid signature' });
     }
@@ -43,20 +47,22 @@ export async function handleAltegioWebhook(req: Request, res: Response) {
       return res.status(400).json({ ok: false, error: 'Invalid event' });
     }
 
+    const bookingData = await hydrateBookingData(event.data);
+
     logger.info(`Processing Altegio webhook: ${event.type}`, {
-      bookingId: event.data.booking_id,
+      bookingId: bookingData.booking_id,
     });
 
     // Handle event
     switch (event.type) {
       case 'booking_created':
-        await handleBookingCreated(event.data);
+        await handleBookingCreated(bookingData);
         break;
       case 'booking_updated':
-        await handleBookingUpdated(event.data);
+        await handleBookingUpdated(bookingData);
         break;
       case 'booking_cancelled':
-        await handleBookingCancelled(event.data);
+        await handleBookingCancelled(bookingData);
         break;
     }
 
@@ -67,13 +73,32 @@ export async function handleAltegioWebhook(req: Request, res: Response) {
   }
 }
 
+async function hydrateBookingData(data: BookingWebhookData): Promise<BookingWebhookData> {
+  if (data.client_id && data.start_datetime && data.finish_datetime) {
+    return data;
+  }
+
+  const booking = await altegioClient.getBooking(data.booking_id);
+  return {
+    ...data,
+    client_id: String(data.client_id || booking.client_id || ''),
+    staff_id: String(data.staff_id || booking.staff_id || ''),
+    service_id: String(data.service_id || booking.service?.id || ''),
+    service_name: data.service_name || booking.service?.name || booking.service?.title || 'Услуга',
+    start_datetime: data.start_datetime || booking.start_datetime,
+    finish_datetime: data.finish_datetime || booking.finish_datetime,
+  };
+}
+
 /**
  * Handle new booking created
  */
 async function handleBookingCreated(data: BookingWebhookData) {
   try {
-    // Get client info from Altegio
-    const altegioClient_data = await altegioClient.getClient(data.client_id);
+    if (!data.client_id || !data.start_datetime || !data.finish_datetime) {
+      logger.error('Incomplete booking_created data after Altegio hydration', data);
+      return;
+    }
 
     // Find or create user in DB
     let user = await prisma.user.findUnique({
@@ -91,8 +116,18 @@ async function handleBookingCreated(data: BookingWebhookData) {
     }
 
     // Create appointment record
-    const appointment = await prisma.appointment.create({
-      data: {
+    const appointment = await prisma.appointment.upsert({
+      where: { altegioBookingId: data.booking_id },
+      update: {
+        serviceName: data.service_name,
+        specialist: data.staff_id,
+        startTime: new Date(data.start_datetime),
+        endTime: new Date(data.finish_datetime),
+        status: 'confirmed',
+        reminder24Sent: false,
+        reminder2Sent: false,
+      },
+      create: {
         telegramUserId: user.telegramId,
         altegioBookingId: data.booking_id,
         serviceName: data.service_name,
@@ -116,8 +151,9 @@ async function handleBookingCreated(data: BookingWebhookData) {
       telegramUserId: user.telegramId,
       type: 'confirmation',
       appointmentId: appointment.id,
-      content: `
+        content: `
 Сервис: ${data.service_name}
+Специалист: ${data.staff_id}
 Дата/Время: ${new Date(data.start_datetime).toLocaleString('ru-RU')}
       `,
       locale,
@@ -146,8 +182,9 @@ async function handleBookingCreated(data: BookingWebhookData) {
         type: 'admin_new',
         appointmentId: appointment.id,
         content: `
-Клиент: ${user.firstName} ${user.lastName}
+Клиент: ${user.firstName || ''} ${user.lastName || ''}
 Сервис: ${data.service_name}
+Специалист: ${data.staff_id}
 Дата/Время: ${new Date(data.start_datetime).toLocaleString('ru-RU')}
         `,
         locale: 'ru',
@@ -164,6 +201,11 @@ async function handleBookingCreated(data: BookingWebhookData) {
  */
 async function handleBookingUpdated(data: BookingWebhookData) {
   try {
+    if (!data.start_datetime || !data.finish_datetime) {
+      logger.error('Incomplete booking_updated data after Altegio hydration', data);
+      return;
+    }
+
     const appointment = await prisma.appointment.findUnique({
       where: { altegioBookingId: data.booking_id },
       include: { user: true },
@@ -194,10 +236,10 @@ async function handleBookingUpdated(data: BookingWebhookData) {
     if (appointment.user.telegramId) {
       await enqueueNotification({
         telegramUserId: appointment.user.telegramId,
-        type: 'reminder_24h', // Use as update notification
+        type: 'client_update',
         appointmentId: appointment.id,
         content: `
-Время записи изменено!
+Сервис: ${appointment.serviceName}
 Новое время: ${new Date(data.start_datetime).toLocaleString('ru-RU')}
         `,
         locale: appointment.user.locale,
@@ -208,11 +250,11 @@ async function handleBookingUpdated(data: BookingWebhookData) {
     if (config.telegram.adminChatId) {
       await enqueueNotification({
         telegramUserId: config.telegram.adminChatId,
-        type: 'admin_new',
+        type: 'admin_update',
         appointmentId: appointment.id,
         content: `
 Изменение времени записи
-Клиент: ${appointment.user.firstName} ${appointment.user.lastName}
+Клиент: ${appointment.user.firstName || ''} ${appointment.user.lastName || ''}
 Старое время: ${appointment.startTime.toLocaleString('ru-RU')}
 Новое время: ${new Date(data.start_datetime).toLocaleString('ru-RU')}
         `,
@@ -252,10 +294,9 @@ async function handleBookingCancelled(data: BookingWebhookData) {
     if (appointment.user.telegramId) {
       await enqueueNotification({
         telegramUserId: appointment.user.telegramId,
-        type: 'reminder_24h', // Use as cancellation notification
+        type: 'client_cancel',
         appointmentId: appointment.id,
         content: `
-Ваша запись отменена:
 ${appointment.serviceName}
 ${appointment.startTime.toLocaleString('ru-RU')}
         `,
@@ -271,7 +312,7 @@ ${appointment.startTime.toLocaleString('ru-RU')}
         appointmentId: appointment.id,
         content: `
 Отмена записи
-Клиент: ${appointment.user.firstName} ${appointment.user.lastName}
+Клиент: ${appointment.user.firstName || ''} ${appointment.user.lastName || ''}
 Сервис: ${appointment.serviceName}
         `,
         locale: 'ru',

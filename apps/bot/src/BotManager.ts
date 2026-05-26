@@ -1,14 +1,16 @@
 import { Telegraf, Context } from 'telegraf';
 import { Update } from 'telegraf/types';
 import express from 'express';
+import { Server } from 'http';
 import logger from '@bot/logger';
-import { config } from '../config';
-import { handleAltegioWebhook } from '../webhooks/altegio';
+import { config } from './config';
+import { handleAltegioWebhook } from './webhooks/altegio';
 import { closeQueues } from '@bot/notifications';
 
 export class BotManager {
   private bot: Telegraf<Context<Update>>;
   private app: express.Application;
+  private server?: Server;
   private isShuttingDown = false;
 
   constructor() {
@@ -19,7 +21,11 @@ export class BotManager {
   }
 
   private setupMiddleware() {
-    this.app.use(express.json());
+    this.app.use(express.json({
+      verify: (req, _res, buf) => {
+        (req as any).rawBody = buf.toString('utf8');
+      },
+    }));
 
     // Health check endpoint
     this.app.get('/health', (req, res) => {
@@ -52,8 +58,16 @@ export class BotManager {
       try {
         // Stop bot
         logger.info('Stopping Telegraf bot...');
-        await this.bot.stop(signal);
+        this.bot.stop(signal);
         logger.info('Bot stopped gracefully');
+
+        if (this.server) {
+          logger.info('Closing HTTP server...');
+          await new Promise<void>((resolve, reject) => {
+            this.server?.close((error) => (error ? reject(error) : resolve()));
+          });
+          logger.info('HTTP server closed');
+        }
 
         // Close queue workers and schedulers
         logger.info('Closing queue workers...');
@@ -102,7 +116,7 @@ export class BotManager {
       this.setupHandlers();
 
       const port = config.app.port;
-      this.app.listen(port, () => {
+      this.server = this.app.listen(port, () => {
         logger.info(`Bot server listening on port ${port}`);
       });
 
