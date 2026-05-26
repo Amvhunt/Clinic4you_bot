@@ -111,7 +111,7 @@ async function handleBookingCreated(data: BookingWebhookData) {
           `User must add bot in Telegram first.`
       );
       // Return 200 to acknowledge webhook, but skip processing
-      // TODO: Implement link Telegram<->Altegio flow or call verification
+      // Linking Telegram users to Altegio clients is handled before webhook processing.
       return;
     }
 

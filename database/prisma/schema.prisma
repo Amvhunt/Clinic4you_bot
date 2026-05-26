@@ -29,6 +29,7 @@ model User {
   notifications     Notification[]
   preferences       UserPreferences?
   loyaltyPoints     LoyaltyPoints?
+  aiMessages        AiMessage[]
 
   @@index([telegramId])
   @@index([altegioUserId])
@@ -105,6 +106,42 @@ model Notification {
   @@index([appointmentId])
   @@index([type])
   @@index([sentAt])
+}
+
+// AI assistant interaction log
+model AiMessage {
+  id                String      @id @default(cuid())
+  telegramUserId    String?
+  user              User?       @relation(fields: [telegramUserId], references: [telegramId])
+
+  question          String
+  answer            String
+  mode              String      @default("local") // local, openrouter
+  sources           Json?
+
+  createdAt         DateTime    @default(now())
+
+  @@index([telegramUserId])
+  @@index([createdAt])
+}
+
+// Mailing campaigns
+model MailingCampaign {
+  id                String      @id @default(cuid())
+  title             String
+  message           String
+  audience          String      // all, marketing_opt_in, active_clients
+  status            String      @default("draft") // draft, queued, sent, failed
+  recipientCount    Int         @default(0)
+  createdBy         String?
+  sentAt            DateTime?
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([audience])
+  @@index([status])
+  @@index([createdAt])
 }
 
 // Loyalty points

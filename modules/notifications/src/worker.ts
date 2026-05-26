@@ -3,12 +3,10 @@ import { Telegraf } from 'telegraf';
 import prisma from '@bot/database';
 import logger from '@bot/logger';
 import { enqueueNotification, NotificationJobData, ReminderJobData } from './queue';
+import { getRedisConnection } from './env';
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || '');
-const redisConnection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-};
+const redisConnection = getRedisConnection();
 
 // Notification messages by type
 const getNotificationMessage = (
@@ -26,6 +24,7 @@ const getNotificationMessage = (
       admin_cancel: '❌ Отмена записи:\n\n{content}',
       client_update: '🔄 Время записи изменено\n\n{content}',
       client_cancel: '❌ Ваша запись отменена\n\n{content}',
+      marketing: '{content}',
     },
     ua: {
       confirmation: '✅ Запис підтверджена!\n\n{content}',
@@ -36,6 +35,7 @@ const getNotificationMessage = (
       admin_cancel: '❌ Скасування запису:\n\n{content}',
       client_update: '🔄 Час запису змінено\n\n{content}',
       client_cancel: '❌ Ваш запис скасовано\n\n{content}',
+      marketing: '{content}',
     },
     en: {
       confirmation: '✅ Appointment confirmed!\n\n{content}',
@@ -46,6 +46,7 @@ const getNotificationMessage = (
       admin_cancel: '❌ Appointment cancelled:\n\n{content}',
       client_update: '🔄 Appointment time changed\n\n{content}',
       client_cancel: '❌ Your appointment was cancelled\n\n{content}',
+      marketing: '{content}',
     },
   };
 
@@ -53,10 +54,13 @@ const getNotificationMessage = (
   return template.replace('{content}', content);
 };
 
-// Notification worker
-export const notificationWorker = new Worker(
-  'notifications',
-  async (job: Job<NotificationJobData>) => {
+export let notificationWorker: Worker<NotificationJobData> | undefined;
+export let reminderWorker: Worker<ReminderJobData> | undefined;
+
+function createNotificationWorker() {
+  const worker = new Worker<NotificationJobData>(
+    'notifications',
+    async (job: Job<NotificationJobData>) => {
     try {
       const { telegramUserId, type, content, locale = 'ru', appointmentId } = job.data;
 
@@ -139,12 +143,28 @@ export const notificationWorker = new Worker(
       throw error;
     }
   },
-  { connection: redisConnection, concurrency: 5 }
-);
+    { connection: redisConnection, concurrency: 5 }
+  );
 
-export const reminderWorker = new Worker(
-  'reminders',
-  async (job: Job<ReminderJobData>) => {
+  worker.on('completed', (job) => {
+    logger.debug(`Notification job completed: ${job.id}`);
+  });
+
+  worker.on('failed', (job, error) => {
+    logger.error(`Notification job failed after retries: ${job?.id}`, error);
+  });
+
+  worker.on('error', (error) => {
+    logger.error('Notification worker error:', error);
+  });
+
+  return worker;
+}
+
+function createReminderWorker() {
+  const worker = new Worker<ReminderJobData>(
+    'reminders',
+    async (job: Job<ReminderJobData>) => {
     const { telegramUserId, appointmentId, reminderType } = job.data;
 
     logger.info(`Processing reminder job: ${job.id}`, {
@@ -184,42 +204,42 @@ export const reminderWorker = new Worker(
 
     return { success: true };
   },
-  { connection: redisConnection, concurrency: 5 }
-);
+    { connection: redisConnection, concurrency: 5 }
+  );
 
-// Worker event handlers
-notificationWorker.on('completed', (job) => {
-  logger.debug(`Notification job completed: ${job.id}`);
-});
+  worker.on('completed', (job) => {
+    logger.debug(`Reminder job completed: ${job.id}`);
+  });
 
-notificationWorker.on('failed', (job, error) => {
-  logger.error(`Notification job failed after retries: ${job?.id}`, error);
-});
+  worker.on('failed', (job, error) => {
+    logger.error(`Reminder job failed after retries: ${job?.id}`, error);
+  });
 
-notificationWorker.on('error', (error) => {
-  logger.error('Notification worker error:', error);
-});
+  worker.on('error', (error) => {
+    logger.error('Reminder worker error:', error);
+  });
 
-reminderWorker.on('completed', (job) => {
-  logger.debug(`Reminder job completed: ${job.id}`);
-});
-
-reminderWorker.on('failed', (job, error) => {
-  logger.error(`Reminder job failed after retries: ${job?.id}`, error);
-});
-
-reminderWorker.on('error', (error) => {
-  logger.error('Reminder worker error:', error);
-});
+  return worker;
+}
 
 export async function startNotificationWorker() {
   logger.info('Starting notification and reminder workers...');
-  // Worker is already running once instantiated
+  notificationWorker ??= createNotificationWorker();
+  reminderWorker ??= createReminderWorker();
   logger.info('Notification and reminder workers started');
 }
 
 export async function closeNotificationWorker() {
-  await notificationWorker.close();
-  await reminderWorker.close();
+  await notificationWorker?.close();
+  await reminderWorker?.close();
+  notificationWorker = undefined;
+  reminderWorker = undefined;
   logger.info('Notification and reminder workers closed');
+}
+
+if (require.main === module) {
+  startNotificationWorker().catch((error) => {
+    logger.error('Failed to start notification worker:', error);
+    process.exit(1);
+  });
 }

@@ -1,10 +1,8 @@
 import { Queue, ConnectionOptions } from 'bullmq';
 import logger from '@bot/logger';
+import { getRedisConnection } from './env';
 
-const redisConnection: ConnectionOptions = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-};
+const redisConnection: ConnectionOptions = getRedisConnection();
 
 // Queue definitions
 export const notificationQueue = new Queue('notifications', { connection: redisConnection });
@@ -31,7 +29,8 @@ export interface NotificationJobData {
     | 'client_cancel'
     | 'admin_new'
     | 'admin_update'
-    | 'admin_cancel';
+    | 'admin_cancel'
+    | 'marketing';
   appointmentId?: string;
   content: string;
   locale?: string;

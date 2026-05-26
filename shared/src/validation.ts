@@ -40,7 +40,8 @@ export const notificationJobSchema = Joi.object({
       'client_cancel',
       'admin_new',
       'admin_update',
-      'admin_cancel'
+      'admin_cancel',
+      'marketing'
     )
     .required(),
   appointmentId: Joi.string().optional(),

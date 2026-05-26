@@ -11,19 +11,21 @@
     "test": "jest"
   },
   "dependencies": {
-    "telegraf": "^4.14.0",
-    "bullmq": "^4.10.4",
-    "redis": "^4.6.11",
-    "@prisma/client": "^5.7.0",
-    "i18next": "^23.7.6",
-    "winston": "^3.11.0",
-    "axios": "^1.6.2",
+    "@bot/database": "*",
     "@bot/logger": "*",
-    "@bot/database": "*"
+    "@prisma/client": "^5.7.0",
+    "axios": "^1.6.2",
+    "bullmq": "^5.77.4",
+    "dotenv": "^16.3.1",
+    "i18next": "^23.7.6",
+    "redis": "^4.6.11",
+    "telegraf": "^4.14.0",
+    "turbo": "2.9.14",
+    "winston": "^3.11.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
-    "typescript": "^5.3.3",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
   }
 }

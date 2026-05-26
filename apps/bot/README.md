@@ -10,6 +10,16 @@ Main Telegram bot application using Telegraf framework.
 - Webhook support
 - Polling fallback for development
 - Structured logging with Winston
+- Telegram `/menu` with AI, appointments, settings and admin mailing dry-run
+- `/miniapp` and `/api/status` HTTP endpoints for quick verification
+
+## Bot Commands
+
+- `/menu` - open inline menu
+- `/ask <question>` - ask the clinic AI assistant
+- `/appointments` - show active appointments linked to Telegram ID
+- `/settings` - toggle marketing mailing preference
+- `/mailing_test` - admin-only mailing dry-run
 
 ## Environment Variables
 

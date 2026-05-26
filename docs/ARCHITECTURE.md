@@ -18,6 +18,7 @@ project/
 │   ├── booking/          # Booking logic
 │   ├── inventory/        # Inventory management
 │   ├── notifications/    # Telegram notifications + queues
+│   ├── mailing/          # Campaign audience and queueing
 │   ├── loyalty/          # Loyalty points system
 │   ├── payments/         # Payment processing
 │   └── analytics/        # Analytics and reporting
@@ -156,15 +157,35 @@ Notifications (Enqueue messages)
 
 ### OpenRouter (Фаза 2)
 - LLM API для обработки текста
-- RAG для контекстных ответов
+- Локальная RAG-база как fallback без внешнего API
 - Интеграция через AI модуль
+
+### AI и Mailing Pipeline
+```
+Telegram /menu или /ask
+    ↓
+Core Bot
+    ↓
+AI module: local retrieval → OpenRouter if configured
+    ↓
+AiMessage log in PostgreSQL
+
+Admin mailing action
+    ↓
+Mailing module audience selection
+    ↓
+BullMQ notification jobs
+    ↓
+Notification worker → Telegram
+```
 
 ## Масштабирование на Фазу 2 и 3
 
 ### Фаза 2: AI и Рассылки
-- Добавить AI модуль с RAG
-- Реализовать mailing module
-- Интегрировать OpenRouter
+- Реализован AI модуль с локальной RAG-базой и OpenRouter fallback
+- Реализован mailing module для Telegram-рассылок
+- Добавлено Telegram меню и лёгкая `/miniapp` страница для проверки
+- Добавлены модели `AiMessage` и `MailingCampaign`
 
 ### Фаза 3: Web Interface
 - Создать Next.js админ панель

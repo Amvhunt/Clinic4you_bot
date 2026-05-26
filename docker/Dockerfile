@@ -8,6 +8,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 COPY apps/bot/package.json ./apps/bot/
+COPY modules/ai/package.json ./modules/ai/
+COPY modules/mailing/package.json ./modules/mailing/
 COPY modules/notifications/package.json ./modules/notifications/
 COPY modules/altegio/package.json ./modules/altegio/
 COPY modules/validation/package.json ./modules/validation/
@@ -21,6 +23,7 @@ RUN npm install
 COPY . .
 
 # Build all packages
+RUN npm run db:generate --workspace=@bot/database
 RUN npm run build
 
 EXPOSE 3000

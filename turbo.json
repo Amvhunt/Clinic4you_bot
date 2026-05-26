@@ -4,7 +4,7 @@
     "**/.env",
     "**/.env.local"
   ],
-  "pipeline": {
+  "tasks": {
     "build": {
       "dependsOn": [
         "^build"
@@ -22,9 +22,7 @@
       "dependsOn": [
         "^build"
       ],
-      "outputs": [
-        "coverage/**"
-      ]
+      "outputs": []
     },
     "lint": {
       "outputs": []

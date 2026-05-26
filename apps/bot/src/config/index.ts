@@ -1,11 +1,22 @@
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 
-dotenv.config();
+const envPaths = [
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), '..', '..', '.env'),
+  path.resolve(__dirname, '..', '..', '..', '..', '.env'),
+  path.resolve(__dirname, '..', '..', '..', '.env'),
+];
+
+const envPath = envPaths.find((candidate) => fs.existsSync(candidate));
+dotenv.config(envPath ? { path: envPath } : undefined);
 
 export const config = {
   telegram: {
     token: process.env.TELEGRAM_BOT_TOKEN || '',
     adminChatId: process.env.ADMIN_CHAT_ID || '',
+    webhookUrl: process.env.TELEGRAM_WEBHOOK_URL || '',
   },
   database: {
     url: process.env.DATABASE_URL || 'postgresql://user:password@localhost:5432/clinic_bot',
@@ -21,6 +32,10 @@ export const config = {
   },
   openrouter: {
     apiKey: process.env.OPENROUTER_API_KEY || '',
+    model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
+  },
+  ai: {
+    enabled: process.env.AI_ENABLED !== 'false',
   },
   i18n: {
     defaultLocale: process.env.DEFAULT_LOCALE || 'ru',
@@ -36,7 +51,10 @@ if (!config.telegram.token) {
   throw new Error('TELEGRAM_BOT_TOKEN is not set in environment variables');
 }
 
-if (!config.altegio.partnerToken || !config.altegio.userToken || !config.altegio.locationId) {
+if (
+  config.app.env === 'production' &&
+  (!config.altegio.partnerToken || !config.altegio.userToken || !config.altegio.locationId)
+) {
   throw new Error(
     'ALTEGIO_PARTNER_TOKEN, ALTEGIO_USER_TOKEN and ALTEGIO_LOCATION_ID must be set in environment variables'
   );
